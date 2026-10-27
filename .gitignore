@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+
+# Keep the historical C# implementation local to this native-only repository.
+/src/
+/tests/
+/Directory.Build.props
+/THIRD-PARTY-NOTICES.txt
