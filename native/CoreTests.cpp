@@ -190,11 +190,12 @@ int Tests() {
         try { light::Wide("\xff"); } catch (const std::runtime_error&) { return; }
         throw std::runtime_error("Expected UTF-8 error.");
     });
-    test("Settings round trip, replacement, Unicode and historical nullable service ID", [] {
+    test("GlowTray app data directory", [] { Require(light::DataDirectory().filename() == L"GlowTray"); });
+    test("Settings round trip, replacement, Unicode and nullable service ID", [] {
         wchar_t temporary[MAX_PATH]{};
         GetTempPathW(MAX_PATH, temporary);
         const auto directory = std::filesystem::path(temporary) /
-            (L"RingLightNative-test-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()));
+            (L"GlowTray-test-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()));
         std::filesystem::create_directory(directory);
         const auto path = directory / L"settings.json";
         try {

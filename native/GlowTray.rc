@@ -1,5 +1,5 @@
 #include <windows.h>
-101 ICON "RingLight.ico"
+101 ICON "GlowTray.ico"
 1 RT_MANIFEST "app.manifest"
 
 102 DIALOGEX 0, 0, 240, 98
@@ -25,9 +25,9 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "RingLight Native - local light controller"
+            VALUE "FileDescription", "GlowTray - local light controller"
             VALUE "FileVersion", "1.0.0"
-            VALUE "ProductName", "RingLight Native"
+            VALUE "ProductName", "GlowTray"
             VALUE "ProductVersion", "1.0.0"
         END
     END

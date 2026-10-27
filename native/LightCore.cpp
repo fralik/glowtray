@@ -43,7 +43,7 @@ struct InternetHandle {
 std::wstring Request(const Device& device, const wchar_t* method, const wchar_t* path,
                      const std::string& body = {}) {
     Validate(device);
-    InternetHandle session(WinHttpOpen(L"RingLightNative/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY,
+    InternetHandle session(WinHttpOpen(L"GlowTray/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY,
         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
     Check(WinHttpSetTimeouts(session.value, 1500, 2500, 2500, 2500), L"Setting HTTP timeouts");
     InternetHandle connection(WinHttpConnect(session.value, device.address.c_str(), device.port, 0));
@@ -341,7 +341,7 @@ ProbeResult Probe(const Device& device) {
 std::filesystem::path DataDirectory() {
     PWSTR path = nullptr;
     winrt::check_hresult(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &path));
-    const auto result = std::filesystem::path(path) / L"RingLightNative";
+    const auto result = std::filesystem::path(path) / L"GlowTray";
     CoTaskMemFree(path);
     return result;
 }
@@ -416,9 +416,9 @@ void Log(const std::wstring& message) {
             time.wDay, time.wHour, time.wMinute, time.wSecond);
         const auto text = Utf8(std::wstring(stamp) + message + L"\r\n");
         if (!output || !output.write(text.data(), static_cast<std::streamsize>(text.size())))
-            OutputDebugStringW((L"Could not write RingLight log: " + message).c_str());
+            OutputDebugStringW((L"Could not write GlowTray log: " + message).c_str());
     } catch (const std::exception& error) {
-        OutputDebugStringA(("Could not write RingLight log: " + std::string(error.what())).c_str());
+        OutputDebugStringA(("Could not write GlowTray log: " + std::string(error.what())).c_str());
     } catch (const winrt::hresult_error& error) {
         OutputDebugStringW(error.message().c_str());
     }

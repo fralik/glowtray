@@ -2,7 +2,7 @@ param([switch]$SkipTests)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$output = Join-Path $root 'artifacts\RingLight.Native'
+$output = Join-Path $root 'artifacts\GlowTray'
 $objects = Join-Path $root 'artifacts\native-obj'
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -18,7 +18,7 @@ $pen = [Drawing.Pen]::new([Drawing.Color]::FromArgb(135, 230, 188), 6)
 $graphics.DrawEllipse($pen, 6, 6, 20, 20)
 $handle = $bitmap.GetHicon()
 $icon = [Drawing.Icon]::FromHandle($handle)
-$stream = [IO.File]::Create((Join-Path $objects 'RingLight.ico'))
+$stream = [IO.File]::Create((Join-Path $objects 'GlowTray.ico'))
 try { $icon.Save($stream) }
 finally {
     $stream.Dispose()
@@ -26,8 +26,8 @@ finally {
     $pen.Dispose()
     $graphics.Dispose()
     $bitmap.Dispose()
-    Add-Type -TypeDefinition 'public static class RingLightBuildIcons { [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr h); }'
-    $null = [RingLightBuildIcons]::DestroyIcon($handle)
+    Add-Type -TypeDefinition 'public static class GlowTrayBuildIcons { [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr h); }'
+    $null = [GlowTrayBuildIcons]::DestroyIcon($handle)
 }
 
 $flags = '/nologo /std:c++20 /EHsc /permissive- /W4 /WX /external:W0 /O1 /GL /Gy /Gw /MT /utf-8 /guard:cf /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_WIN32_WINNT=0x0A00'
@@ -37,20 +37,20 @@ $commands = @(
     "set `"PATH=$(Split-Path $vswhere -Parent);%PATH%`"",
     "call `"$environment`" >nul",
     "cd /d `"$PSScriptRoot`"",
-    "rc /nologo /i `"$objects`" /fo `"$objects\RingLight.res`" RingLight.rc",
+    "rc /nologo /i `"$objects`" /fo `"$objects\GlowTray.res`" GlowTray.rc",
     "cl $flags /c LightCore.cpp /Fo`"$objects\LightCore.obj`"",
-    "cl $flags /c RingLight.cpp /Fo`"$objects\RingLight.obj`"",
-    "link $link /SUBSYSTEM:WINDOWS /OUT:`"$output\RingLight.Native.exe`" `"$objects\RingLight.obj`" `"$objects\LightCore.obj`" `"$objects\RingLight.res`" $libraries"
+    "cl $flags /c GlowTray.cpp /Fo`"$objects\GlowTray.obj`"",
+    "link $link /SUBSYSTEM:WINDOWS /OUT:`"$output\GlowTray.exe`" `"$objects\GlowTray.obj`" `"$objects\LightCore.obj`" `"$objects\GlowTray.res`" $libraries"
 )
 if (-not $SkipTests) {
     $commands += "cl $flags /c CoreTests.cpp /Fo`"$objects\CoreTests.obj`""
-    $commands += "link $link /SUBSYSTEM:CONSOLE /OUT:`"$objects\RingLight.Tests.exe`" `"$objects\CoreTests.obj`" `"$objects\LightCore.obj`" $libraries"
+    $commands += "link $link /SUBSYSTEM:CONSOLE /OUT:`"$objects\GlowTray.Tests.exe`" `"$objects\CoreTests.obj`" `"$objects\LightCore.obj`" $libraries"
 }
 & $env:ComSpec /d /c ($commands -join ' && ')
 if ($LASTEXITCODE -ne 0) { throw "Native build failed (exit $LASTEXITCODE)." }
 if (-not $SkipTests) {
-    & "$objects\RingLight.Tests.exe"
+    & "$objects\GlowTray.Tests.exe"
     if ($LASTEXITCODE -ne 0) { throw 'Native regression tests failed.' }
 }
-$executable = Get-Item "$output\RingLight.Native.exe"
+$executable = Get-Item "$output\GlowTray.exe"
 Write-Output ("Built {0}: {1:N0} bytes ({2:N0} KiB)" -f $executable.FullName, $executable.Length, ($executable.Length / 1KB))

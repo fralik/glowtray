@@ -14,7 +14,7 @@
 #include <utility>
 
 namespace {
-constexpr wchar_t WindowClass[] = L"RingLight.Native.Flyout";
+constexpr wchar_t WindowClass[] = L"GlowTray.Flyout";
 constexpr UINT ResultMessage = WM_APP + 1, TrayMessage = WM_APP + 2, ShowMessage = WM_APP + 3;
 constexpr UINT TickTimer = 1, PollTimer = 2, DiscoverTimer = 3;
 constexpr int Choice = 1001, Power = 1002, Brightness = 1003, Temperature = 1004,
@@ -193,7 +193,7 @@ public:
         if (!RegisterClassExW(&type)) throw light::Error(L"Registering window: " + light::ErrorText(GetLastError()));
         icon_ = static_cast<HICON>(LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON, 32, 32, 0));
         if (!icon_) throw light::Error(L"Loading application icon failed.");
-        window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_CONTROLPARENT, WindowClass, L"RingLight Native",
+        window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_CONTROLPARENT, WindowClass, L"GlowTray",
             WS_POPUP | WS_CLIPCHILDREN, 0, 0, 368, 520, nullptr, nullptr, instance_, this);
         if (!window_) throw light::Error(L"Creating popup: " + light::ErrorText(GetLastError()));
         const BOOL dark = TRUE;
@@ -211,7 +211,7 @@ public:
         tray_.guidItem = TrayGuid;
         tray_.uCallbackMessage = TrayMessage;
         tray_.hIcon = icon_;
-        wcscpy_s(tray_.szTip, L"RingLight Native - click for controls");
+        wcscpy_s(tray_.szTip, L"GlowTray - click for controls");
         AddTray();
     }
 
@@ -222,14 +222,16 @@ public:
         try {
             if (std::filesystem::exists(settingsPath_)) settings = light::LoadSettings(settingsPath_);
             else {
-                const auto historical = settingsPath_.parent_path().parent_path() / L"RingLight" / L"settings.json";
-                if (std::filesystem::exists(historical)) {
+                for (const auto* folder : {L"RingLightNative", L"RingLight"}) {
+                    const auto previous = settingsPath_.parent_path().parent_path() / folder / L"settings.json";
+                    if (!std::filesystem::exists(previous)) continue;
                     try {
-                        settings = light::LoadSettings(historical);
+                        settings = light::LoadSettings(previous);
                         imported = true;
+                        break;
                     } catch (const std::exception& error) {
-                        light::Log(L"C# settings import skipped: " + light::Describe(error));
-                        SetStatus(L"Could not import old settings; discovering lights instead.", true);
+                        light::Log(L"Previous settings import skipped: " + light::Describe(error));
+                        SetStatus(L"Could not import previous settings; discovering lights instead.", true);
                     }
                 }
             }
@@ -254,6 +256,11 @@ public:
             }
         }
         if (imported) Save();
+        try { MigrateStartup(); }
+        catch (const std::exception& error) {
+            light::Log(light::Describe(error));
+            SetStatus(light::Describe(error), true);
+        }
         SetTimer(window_, PollTimer, 5000, nullptr);
         SetTimer(window_, DiscoverTimer, 45000, nullptr);
         StartDiscovery();
@@ -435,8 +442,8 @@ private:
             SetWindowTextW(Control(BrightnessValue), L"-- %");
             SetWindowTextW(Control(TemperatureValue), L"-- K");
         }
-        const auto tooltip = entry ? L"RingLight - " + entry->device.name +
-            (entry->online ? (entry->desired.on ? L" (on)" : L" (off)") : L" (offline)") : L"RingLight Native";
+        const auto tooltip = entry ? L"GlowTray - " + entry->device.name +
+            (entry->online ? (entry->desired.on ? L" (on)" : L" (off)") : L" (offline)") : L"GlowTray";
         wcsncpy_s(tray_.szTip, tooltip.c_str(), _TRUNCATE);
         Shell_NotifyIconW(NIM_MODIFY, &tray_);
         InvalidateRect(window_, nullptr, FALSE);
@@ -597,18 +604,20 @@ private:
     bool StartupEnabled() const {
         DWORD type = 0, size = 0;
         const auto result = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            L"RingLightNative", RRF_RT_REG_SZ, &type, nullptr, &size);
+            L"GlowTray", RRF_RT_REG_SZ, &type, nullptr, &size);
         if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND)
             throw light::Error(L"Reading startup preference: " + light::ErrorText(result));
         return result == ERROR_SUCCESS;
     }
-    void ToggleStartup() {
+    void SetStartup(bool enabled) {
         HKEY key = nullptr;
         auto status = RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
             0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr);
         if (status != ERROR_SUCCESS) throw light::Error(L"Updating startup: " + light::ErrorText(status));
-        const bool enabled = StartupEnabled();
-        if (enabled) status = RegDeleteValueW(key, L"RingLightNative");
+        if (!enabled) {
+            status = RegDeleteValueW(key, L"GlowTray");
+            if (status == ERROR_FILE_NOT_FOUND) status = ERROR_SUCCESS;
+        }
         else {
             wchar_t path[32768]{};
             if (!GetModuleFileNameW(nullptr, path, static_cast<DWORD>(std::size(path)))) {
@@ -616,12 +625,28 @@ private:
                 throw light::Error(L"Cannot locate this executable.");
             }
             const auto value = L"\"" + std::wstring(path) + L"\" --tray";
-            status = RegSetValueExW(key, L"RingLightNative", 0, REG_SZ,
+            status = RegSetValueExW(key, L"GlowTray", 0, REG_SZ,
                 reinterpret_cast<const BYTE*>(value.c_str()), static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
+        }
+        if (status == ERROR_SUCCESS) {
+            status = RegDeleteValueW(key, L"RingLightNative");
+            if (status == ERROR_FILE_NOT_FOUND) status = ERROR_SUCCESS;
         }
         RegCloseKey(key);
         if (status != ERROR_SUCCESS) throw light::Error(L"Updating startup: " + light::ErrorText(status));
+    }
+    void ToggleStartup() {
+        const bool enabled = StartupEnabled();
+        SetStartup(!enabled);
         SetStatus(enabled ? L"Start with Windows disabled." : L"Will start in the tray with Windows.");
+    }
+    void MigrateStartup() {
+        DWORD size = 0;
+        const auto status = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            L"RingLightNative", RRF_RT_REG_SZ, nullptr, nullptr, &size);
+        if (status == ERROR_FILE_NOT_FOUND) return;
+        if (status != ERROR_SUCCESS) throw light::Error(L"Reading previous startup preference: " + light::ErrorText(status));
+        SetStartup(true);
     }
     void Menu() {
         const HMENU menu = CreatePopupMenu();
@@ -748,7 +773,7 @@ private:
         Ellipse(dc, S(23), S(25), S(45), S(47));
         SelectObject(dc, oldPen);
         DeleteObject(pen);
-        TextAt(dc, L"RingLight", 58, 18, 200, 30, titleFont_);
+        TextAt(dc, L"GlowTray", 58, 18, 200, 30, titleFont_);
         TextAt(dc, L"NATIVE  /  LOCAL CONTROL", 59, 48, 240, 14, smallFont_, Muted);
         auto* entry = Selected();
         const auto ringPen = CreatePen(PS_SOLID, S(6),
@@ -935,10 +960,10 @@ private:
         try { return app->Message(message, wParam, lParam); }
         catch (const std::exception& error) {
             light::Log(light::Describe(error));
-            MessageBoxW(window, light::Describe(error).c_str(), L"RingLight error", MB_OK | MB_ICONERROR);
+            MessageBoxW(window, light::Describe(error).c_str(), L"GlowTray error", MB_OK | MB_ICONERROR);
         } catch (const winrt::hresult_error& error) {
             light::Log(error.message().c_str());
-            MessageBoxW(window, error.message().c_str(), L"RingLight error", MB_OK | MB_ICONERROR);
+            MessageBoxW(window, error.message().c_str(), L"GlowTray error", MB_OK | MB_ICONERROR);
         }
         PostQuitMessage(1);
         return 0;
@@ -947,7 +972,7 @@ private:
 }
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\RingLight.Native");
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\GlowTray");
     if (!mutex) return 1;
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         if (const auto existing = FindWindowW(WindowClass, nullptr)) PostMessageW(existing, ShowMessage, 0, 0);
@@ -994,10 +1019,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         winrt::uninit_apartment();
     } catch (const std::exception& error) {
         light::Log(light::Describe(error));
-        MessageBoxW(nullptr, light::Describe(error).c_str(), L"RingLight could not start", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, light::Describe(error).c_str(), L"GlowTray could not start", MB_OK | MB_ICONERROR);
     } catch (const winrt::hresult_error& error) {
         light::Log(error.message().c_str());
-        MessageBoxW(nullptr, error.message().c_str(), L"RingLight could not start", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, error.message().c_str(), L"GlowTray could not start", MB_OK | MB_ICONERROR);
     }
     WSACleanup();
     CloseHandle(mutex);
