@@ -10,9 +10,17 @@ permissions:
 
 jobs:
   build:
-    name: Windows x64 release
-    runs-on: windows-2025
-    timeout-minutes: 15
+    name: Windows ${{ matrix.architecture }} release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-2025
+          - architecture: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     defaults:
       run:
         shell: pwsh
@@ -23,11 +31,34 @@ jobs:
           persist-credentials: false
 
       - name: Build release and run native regression tests
-        run: .\native\build.ps1
+        run: .\native\build.ps1 -Architecture ${{ matrix.architecture }}
 
-      - name: Upload Windows executable
+      - name: Package per-user EXE installer
+        run: .\native\package.ps1 -Architecture ${{ matrix.architecture }}
+
+      - name: Check installer, upgrade, and uninstall
+        run: |
+          $installer = (Get-ChildItem 'artifacts\installers\${{ matrix.architecture }}\*-Setup.exe').FullName
+          .\native\InstallerSmoke.ps1 -Installer $installer -Architecture ${{ matrix.architecture }}
+
+      - name: Upload portable executable
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: GlowTray-windows-x64
-          path: artifacts\GlowTray\GlowTray.exe
+          name: GlowTray-windows-${{ matrix.architecture }}
+          path: artifacts\GlowTray\${{ matrix.architecture }}\GlowTray.exe
           if-no-files-found: error
+
+      - name: Upload EXE installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: GlowTray-setup-windows-${{ matrix.architecture }}
+          path: artifacts\installers\${{ matrix.architecture }}\*-Setup.exe
+          if-no-files-found: error
+
+      - name: Upload installer logs on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: GlowTray-installer-logs-${{ matrix.architecture }}
+          path: artifacts\installer-smoke\${{ matrix.architecture }}\*.log
+          if-no-files-found: ignore

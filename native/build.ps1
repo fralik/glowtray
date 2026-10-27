@@ -1,13 +1,25 @@
-param([switch]$SkipTests)
+param(
+    [ValidateSet('x64', 'arm64')][string]$Architecture = 'x64',
+    [switch]$SkipTests
+)
 
 $ErrorActionPreference = 'Stop'
+$Architecture = $Architecture.ToLowerInvariant()
 $root = Split-Path $PSScriptRoot -Parent
-$output = Join-Path $root 'artifacts\GlowTray'
-$objects = Join-Path $root 'artifacts\native-obj'
+$output = Join-Path $root "artifacts\GlowTray\$Architecture"
+$objects = Join-Path $root "artifacts\native-obj\$Architecture"
+$hostArchitecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+if ($hostArchitecture -notin @('x64', 'arm64')) { throw 'A 64-bit Windows build host is required.' }
+if ($Architecture -eq 'arm64' -and $hostArchitecture -ne 'arm64' -and -not $SkipTests) {
+    throw 'ARM64 tests require an ARM64 Windows host. Use -SkipTests when cross-compiling.'
+}
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-$installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-if (-not $installation) { throw 'MSVC C++ Build Tools and Windows SDK are required.' }
-$environment = Join-Path $installation 'VC\Auxiliary\Build\vcvars64.bat'
+if (-not (Test-Path $vswhere)) { throw 'Visual Studio C++ Build Tools and a Windows SDK are required.' }
+$component = if ($Architecture -eq 'arm64') { 'ARM64' } else { 'x86.x64' }
+$installation = & $vswhere -latest -products '*' -requires "Microsoft.VisualStudio.Component.VC.Tools.$component" -property installationPath
+if (-not $installation) { throw "MSVC $Architecture C++ Build Tools and a Windows SDK are required." }
+$environment = Join-Path $installation 'VC\Auxiliary\Build\vcvarsall.bat'
+$compilerArchitecture = if ($hostArchitecture -eq $Architecture) { $Architecture } else { "${hostArchitecture}_$Architecture" }
 $null = New-Item -ItemType Directory -Force $output, $objects
 
 Add-Type -AssemblyName System.Drawing
@@ -32,10 +44,11 @@ finally {
 
 $flags = '/nologo /std:c++20 /EHsc /permissive- /W4 /WX /external:W0 /O1 /GL /Gy /Gw /MT /utf-8 /guard:cf /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_WIN32_WINNT=0x0A00'
 $libraries = 'user32.lib gdi32.lib comctl32.lib shell32.lib advapi32.lib ole32.lib runtimeobject.lib windowsapp.lib winhttp.lib ws2_32.lib iphlpapi.lib dnsapi.lib dwmapi.lib msimg32.lib'
-$link = "/nologo /LTCG /OPT:REF,ICF /DYNAMICBASE /NXCOMPAT /CETCOMPAT /GUARD:CF"
+$link = "/nologo /LTCG /OPT:REF,ICF /DYNAMICBASE /NXCOMPAT /GUARD:CF /MACHINE:$Architecture"
+if ($Architecture -eq 'x64') { $link += ' /CETCOMPAT' }
 $commands = @(
     "set `"PATH=$(Split-Path $vswhere -Parent);%PATH%`"",
-    "call `"$environment`" >nul",
+    "call `"$environment`" $compilerArchitecture >nul",
     "cd /d `"$PSScriptRoot`"",
     "rc /nologo /i `"$objects`" /fo `"$objects\GlowTray.res`" GlowTray.rc",
     "cl $flags /c LightCore.cpp /Fo`"$objects\LightCore.obj`"",

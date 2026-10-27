@@ -1,4 +1,7 @@
-param([string]$Executable = "$PSScriptRoot\..\artifacts\GlowTray\GlowTray.exe")
+param(
+    [ValidateSet('x64', 'arm64')][string]$Architecture = 'x64',
+    [string]$Executable = "$PSScriptRoot\..\artifacts\GlowTray\$Architecture\GlowTray.exe"
+)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -22,7 +25,7 @@ public static class NativeLightUi {
 '@
 
 $Executable = (Resolve-Path $Executable).Path
-$testExe = (Resolve-Path "$PSScriptRoot\..\artifacts\native-obj\GlowTray.Tests.exe").Path
+$testExe = (Resolve-Path "$PSScriptRoot\..\artifacts\native-obj\$Architecture\GlowTray.Tests.exe").Path
 if (Get-Process -Name GlowTray -ErrorAction SilentlyContinue) {
     throw 'Close GlowTray before the isolated UI test.'
 }

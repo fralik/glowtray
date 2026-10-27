@@ -4,10 +4,19 @@ A tiny native Windows tray controller for Elgato lights.
 
 ## Run
 
-Run **`artifacts\GlowTray\GlowTray.exe`**.
+Choose the **x64** download for Intel/AMD PCs or **ARM64** for Windows on Arm.
+Download either the portable executable or EXE installer from GitHub Actions (see below).
+For a local x64 build, run **`artifacts\GlowTray\x64\GlowTray.exe`**.
 The portable x64 release is approximately **400 KiB**, with a statically linked C++ runtime.
 It uses Windows system DLLs only: no .NET runtime, browser engine, external DLLs, installer,
 or administrator access is required. Windows 10 or later is required.
+
+The optional EXE installer installs to `%LOCALAPPDATA%\Programs\GlowTray`, adds a Start menu
+shortcut and an entry in Windows' installed-apps list, and needs no administrator access.
+Startup remains opt-in in the tray menu. Upgrading preserves settings and updates an already
+enabled startup entry to the installed path. Before upgrading or uninstalling, use **Exit**
+in GlowTray's tray menu; closing the popup only hides it. Uninstall removes the installed
+app and its startup entry, but retains saved lights and logs.
 
 Single-click the ring icon in the system tray to open a compact control popup beside it.
 Click again, press Escape, click outside, or use the popup's close button to hide it.
@@ -37,13 +46,19 @@ Saved light addresses and enabled startup preferences migrate automatically when
 
 ## Build and check
 
-Requires MSVC x64 C++ Build Tools, a Windows SDK, and PowerShell on Windows.
-No packages or third-party libraries are downloaded.
+Requires MSVC C++ Build Tools for the target architecture, a Windows SDK, and PowerShell 7
+on Windows. No packages or third-party application libraries are downloaded by the build.
 
 ```powershell
-pwsh -File native\build.ps1
-pwsh -File native\UiSmoke.ps1
+pwsh -File native\build.ps1 -Architecture x64
+pwsh -File native\UiSmoke.ps1 -Architecture x64
 ```
+
+Build outputs are `artifacts\GlowTray\<architecture>\GlowTray.exe` and
+`artifacts\native-obj\<architecture>\GlowTray.Tests.exe`. The default architecture is x64.
+On an ARM64 Windows host, use `-Architecture arm64` to build and run the ARM64 regression
+checks. Cross-compiling ARM64 on x64 requires the MSVC ARM64 tools and `-SkipTests`;
+run the tests on an ARM64 host instead.
 
 The build produces `GlowTray.exe` and runs the protocol/settings regression checks.
 The isolated UI check uses a native simulated light on loopback, restores native settings,
@@ -53,20 +68,40 @@ behaviour, startup migration, and clean exit. Close GlowTray before running it.
 Optional read-only real-device checks:
 
 ```powershell
-artifacts\native-obj\GlowTray.Tests.exe --live <address>
-artifacts\native-obj\GlowTray.Tests.exe --discover
+artifacts\native-obj\x64\GlowTray.Tests.exe --live <address>
+artifacts\native-obj\x64\GlowTray.Tests.exe --discover
 ```
 
 Adding `--verify-write` after `--live <address>` re-applies the light's existing brightness
 and verifies that its full state remains unchanged.
 
+To package a build, install **Inno Setup 6.3 or later**, then run:
+
+```powershell
+pwsh -File native\package.ps1 -Architecture x64
+```
+
+Use the same architecture as the build. `-Compiler <path to ISCC.exe>` selects a compiler
+outside the usual Inno Setup 6 installation paths. Packaging checks the executable's PE
+architecture and uses its product version to create
+`artifacts\installers\<architecture>\GlowTray-<version>-<architecture>-Setup.exe`.
+
 ## GitHub Actions
 
-Every push to `master` runs `.github\workflows\build-native.yml` on a Windows runner.
-It builds the native x64 release with `native\build.ps1`, runs the native regression
-checks, and uploads `GlowTray.exe` as the **GlowTray-windows-x64** artifact.
-Download the artifact from the completed workflow run. UI smoke checks remain local
-because they require an interactive Windows desktop.
+Every push to `master` runs `.github\workflows\build-native.yml`. The matrix builds x64
+on `windows-2025` and ARM64 on `windows-11-arm`, running native regression tests on each
+matching architecture. Each job uses the runner's Inno Setup compiler and checks installation,
+upgrade, running-app protection, startup behaviour, and uninstall in a clean account.
+
+Download these artifacts from the completed workflow run:
+
+| Architecture | Portable executable | EXE installer |
+| --- | --- | --- |
+| x64 | **GlowTray-windows-x64** | **GlowTray-setup-windows-x64** |
+| ARM64 | **GlowTray-windows-arm64** | **GlowTray-setup-windows-arm64** |
+
+Installer logs are uploaded if a job fails. UI smoke checks remain local because they
+require an interactive Windows desktop.
 
 The Git repository tracks only the native app, its build/test scripts, and documentation.
 Generated binaries are ignored. A local Git commit alone
