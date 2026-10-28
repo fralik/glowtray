@@ -1,6 +1,6 @@
 # GlowTray
 
-A tiny native Windows tray controller for Elgato lights.
+A tiny native Windows tray controller for Elgato lights. Vibe coded because the official app doesn't work reliably.
 
 ## Run
 
@@ -85,24 +85,3 @@ Use the same architecture as the build. `-Compiler <path to ISCC.exe>` selects a
 outside the usual Inno Setup 6 installation paths. Packaging checks the executable's PE
 architecture and uses its product version to create
 `artifacts\installers\<architecture>\GlowTray-<version>-<architecture>-Setup.exe`.
-
-## GitHub Actions
-
-Every push to `master` runs `.github\workflows\build-native.yml`. The matrix builds x64
-on `windows-2025` and ARM64 on `windows-11-arm`, running native regression tests on each
-matching architecture. Each job uses the runner's Inno Setup compiler and checks installation,
-upgrade, running-app protection, startup behaviour, and uninstall in a clean account.
-
-Download these artifacts from the completed workflow run:
-
-| Architecture | Portable executable | EXE installer |
-| --- | --- | --- |
-| x64 | **GlowTray-windows-x64** | **GlowTray-setup-windows-x64** |
-| ARM64 | **GlowTray-windows-arm64** | **GlowTray-setup-windows-arm64** |
-
-Installer logs are uploaded if a job fails. UI smoke checks remain local because they
-require an interactive Windows desktop.
-
-The Git repository tracks only the native app, its build/test scripts, and documentation.
-Generated binaries are ignored. A local Git commit alone
-does not run Actions; the commit must be pushed to a GitHub repository.
