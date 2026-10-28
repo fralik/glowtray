@@ -2,6 +2,8 @@
 
 A tiny native Windows tray controller for Elgato lights. Vibe coded because the official app doesn't work reliably.
 
+![GlowTray control popup](app.png)
+
 ## Run
 
 Choose the **x64** download for Intel/AMD PCs or **ARM64** for Windows on Arm.
