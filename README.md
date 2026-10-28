@@ -85,3 +85,7 @@ Use the same architecture as the build. `-Compiler <path to ISCC.exe>` selects a
 outside the usual Inno Setup 6 installation paths. Packaging checks the executable's PE
 architecture and uses its product version to create
 `artifacts\installers\<architecture>\GlowTray-<version>-<architecture>-Setup.exe`.
+
+## License
+
+[MIT](LICENSE)
