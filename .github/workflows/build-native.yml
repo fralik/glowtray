@@ -2,8 +2,8 @@ name: Build GlowTray
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
@@ -29,6 +29,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify tagged commit belongs to master
+        run: |
+          git merge-base --is-ancestor HEAD refs/remotes/origin/master
+          if ($LASTEXITCODE -eq 1) { throw 'Release tags must point to a commit on master.' }
+          if ($LASTEXITCODE -ne 0) { throw "Could not verify master ancestry (exit $LASTEXITCODE)." }
 
       - name: Build release and run native regression tests
         run: .\native\build.ps1 -Architecture ${{ matrix.architecture }}
