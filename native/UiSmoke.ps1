@@ -64,6 +64,14 @@ function Text([IntPtr]$Window) {
     $null = [NativeLightUi]::GetWindowText($Window, $buffer, $buffer.Capacity)
     return $buffer.ToString()
 }
+function Wait-Controls([IntPtr]$Window) {
+    Wait-Until {
+        foreach ($id in @(1002, 1003, 1004)) {
+            if ([NativeLightUi]::GetDlgItem($Window, $id) -eq [IntPtr]::Zero) { return $false }
+        }
+        return $true
+    } 'Native controls did not finish creating.'
+}
 function Set-Slider([IntPtr]$Slider, [int]$Value) {
     # Exercise the native keyboard path: TBM_SETPOS alone does not notify the parent.
     $previous = if ($Value -eq 0) { 1 } else { $Value - 1 }
@@ -126,6 +134,7 @@ try {
     [uint32]$ownerPid = 0
     $null = [NativeLightUi]::GetWindowThreadProcessId($window, [ref]$ownerPid)
     if ($ownerPid -ne $app.Id) { throw 'Found a different native app instance.' }
+    Wait-Controls $window
     $brightness = [NativeLightUi]::GetDlgItem($window, 1003)
     $temperature = [NativeLightUi]::GetDlgItem($window, 1004)
     $power = [NativeLightUi]::GetDlgItem($window, 1002)
@@ -149,6 +158,7 @@ try {
     $app = Start-Process $Executable -ArgumentList '--tray' -PassThru
     Wait-Until { return [NativeLightUi]::FindWindow('GlowTray.Flyout', 'GlowTray') -ne [IntPtr]::Zero } 'GlowTray did not restart.'
     $window = [NativeLightUi]::FindWindow('GlowTray.Flyout', 'GlowTray')
+    Wait-Controls $window
     $brightness = [NativeLightUi]::GetDlgItem($window, 1003)
     $temperature = [NativeLightUi]::GetDlgItem($window, 1004)
     $power = [NativeLightUi]::GetDlgItem($window, 1002)

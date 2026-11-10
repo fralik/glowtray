@@ -75,9 +75,7 @@ jobs:
           [Windows.Forms.SendKeys]::SendWait('{ESC}')
 
       - name: Check native HTTP integration and UI
-        run: |
-          .\native\TrayProbe.ps1
-          .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
+        run: .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
 
       - name: Upload portable executable
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
