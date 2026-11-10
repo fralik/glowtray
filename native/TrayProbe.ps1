@@ -27,6 +27,10 @@ public static class TrayProbe {
 '@
 Write-Output "PowerShell architecture: $([Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)"
 Write-Output "Session: $((Get-Process -Id $PID).SessionId)"
+foreach ($hive in @('HKCU:', 'HKLM:')) {
+    $policy = Get-ItemProperty "$hive\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -ErrorAction SilentlyContinue
+    Write-Output "$hive NoTrayItemsDisplay: $($policy.NoTrayItemsDisplay)"
+}
 Get-Process explorer,WWAHost,StartMenuExperienceHost,UserOOBEBroker,SystemPropertiesPerformance -ErrorAction SilentlyContinue |
     Select-Object Id,ProcessName,SessionId,MainWindowTitle | Format-Table | Out-String | Write-Output
 foreach ($directory in @('C:\a', $env:GITHUB_WORKSPACE, $env:RUNNER_TEMP)) {

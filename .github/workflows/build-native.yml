@@ -60,29 +60,23 @@ jobs:
           $installer = (Get-ChildItem 'artifacts\installers\${{ matrix.architecture }}\*-Setup.exe').FullName
           .\native\InstallerSmoke.ps1 -Installer $installer -Architecture ${{ matrix.architecture }}
 
+      - name: Clear ARM64 runner first-logon dialogs
+        if: matrix.architecture == 'arm64'
+        run: |
+          # https://github.com/actions/runner-images/issues/14069
+          $session = (Get-Process -Id $PID).SessionId
+          $dialogs = Get-Process WWAHost,SystemPropertiesPerformance -ErrorAction SilentlyContinue |
+            Where-Object SessionId -eq $session
+          foreach ($dialog in $dialogs) {
+            Write-Output "Closing first-logon dialog: $($dialog.ProcessName) ($($dialog.Id))"
+            Stop-Process -Id $dialog.Id -Force
+          }
+          Add-Type -AssemblyName System.Windows.Forms
+          [Windows.Forms.SendKeys]::SendWait('{ESC}')
+
       - name: Check native HTTP integration and UI
         run: |
           .\native\TrayProbe.ps1
-          Add-Type -TypeDefinition @'
-          using System;
-          using System.Runtime.InteropServices;
-          public static class ReleaseDesktop {
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-              public static extern IntPtr FindWindow(string className, string windowName);
-          }
-          '@
-          $tray = [ReleaseDesktop]::FindWindow('Shell_TrayWnd', $null)
-          Write-Output "Notification area window: $tray"
-          if ($tray -eq [IntPtr]::Zero) {
-            Write-Output 'Starting Explorer for the UI smoke checks.'
-            Start-Process "$env:WINDIR\explorer.exe"
-            $deadline = (Get-Date).AddSeconds(30)
-            do {
-              Start-Sleep -Milliseconds 250
-              $tray = [ReleaseDesktop]::FindWindow('Shell_TrayWnd', $null)
-            } while ($tray -eq [IntPtr]::Zero -and (Get-Date) -lt $deadline)
-            if ($tray -eq [IntPtr]::Zero) { throw 'Explorer did not create a notification area for UI testing.' }
-          }
           .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
 
       - name: Upload portable executable
