@@ -40,6 +40,16 @@ jobs:
       - name: Build release and run native regression tests
         run: .\native\build.ps1 -Architecture ${{ matrix.architecture }}
 
+      - name: Verify tag matches the application version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $executable = (Get-Item 'artifacts\GlowTray\${{ matrix.architecture }}\GlowTray.exe').FullName
+          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($executable).ProductVersion
+          if ($env:RELEASE_TAG -cne "v$version") {
+            throw "Release tag '$env:RELEASE_TAG' must match the application version 'v$version'."
+          }
+
       - name: Package per-user EXE installer
         run: .\native\package.ps1 -Architecture ${{ matrix.architecture }}
 
@@ -47,6 +57,9 @@ jobs:
         run: |
           $installer = (Get-ChildItem 'artifacts\installers\${{ matrix.architecture }}\*-Setup.exe').FullName
           .\native\InstallerSmoke.ps1 -Installer $installer -Architecture ${{ matrix.architecture }}
+
+      - name: Check native HTTP integration and UI
+        run: .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
 
       - name: Upload portable executable
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -69,3 +82,33 @@ jobs:
           name: GlowTray-installer-logs-${{ matrix.architecture }}
           path: artifacts\installer-smoke\${{ matrix.architecture }}\*.log
           if-no-files-found: ignore
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested executables and installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: GlowTray-*
+          path: artifacts\release
+
+      - name: Publish versioned release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = $env:RELEASE_TAG.Substring(1)
+          $assets = foreach ($architecture in @('x64', 'arm64')) {
+            $portable = "artifacts\release\GlowTray-windows-$architecture\GlowTray-$version-$architecture.exe"
+            Copy-Item "artifacts\release\GlowTray-windows-$architecture\GlowTray.exe" $portable
+            $portable
+            (Get-Item "artifacts\release\GlowTray-setup-windows-$architecture\GlowTray-$version-$architecture-Setup.exe").FullName
+          }
+          gh release create $env:RELEASE_TAG @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "GlowTray $env:RELEASE_TAG" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "GitHub Release publishing failed (exit $LASTEXITCODE)." }

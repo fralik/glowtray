@@ -7,7 +7,8 @@ A tiny native Windows tray controller for Elgato lights. Vibe coded because the 
 ## Run
 
 Choose the **x64** download for Intel/AMD PCs or **ARM64** for Windows on Arm.
-Download either the portable executable or EXE installer from GitHub Actions (see below).
+Download either the portable executable or EXE installer from
+[GitHub Releases](https://github.com/fralik/glowtray/releases/latest).
 For a local x64 build, run **`artifacts\GlowTray\x64\GlowTray.exe`**.
 The portable x64 release is approximately **400 KiB**, with a statically linked C++ runtime.
 It uses Windows system DLLs only: no .NET runtime, browser engine, external DLLs, installer,
@@ -90,6 +91,26 @@ Use the same architecture as the build. `-Compiler <path to ISCC.exe>` selects a
 outside the usual Inno Setup 6 installation paths. Packaging checks the executable's PE
 architecture and uses its product version to create
 `artifacts\installers\<architecture>\GlowTray-<version>-<architecture>-Setup.exe`.
+
+## Releases
+
+Pushing a `v<version>` tag publishes a GitHub Release, not a GitHub Package. The tagged
+commit must belong to `master`, and the tag must match the executable's product version.
+Both x64 and ARM64 must pass native regression tests, simulated-light HTTP integration,
+UI smoke checks, and installer/upgrade/uninstall checks before the release is published.
+Failed or cancelled builds do not publish a release.
+
+Each release includes versioned portable executables and EXE installers for both
+architectures, with automatically generated release notes. The tested binaries also
+remain available as workflow artifacts in GitHub Actions.
+
+To publish a new version, update the version fields in `native\GlowTray.rc`, commit and
+push to `master`, then push a matching tag. For example, after updating to version `1.0.1`:
+
+```powershell
+git tag v1.0.1
+git push origin v1.0.1
+```
 
 ## License
 
