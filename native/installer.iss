@@ -45,10 +45,22 @@ Filename: "{app}\GlowTray.exe"; Description: "Launch GlowTray"; Flags: nowait po
 [Code]
 const
   StartupKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{4EB714F1-54D1-45AB-BF37-38D24B403EE4}_is1';
+
+var
+  EnableStartup: Boolean;
+
+function InitializeSetup: Boolean;
+begin
+  EnableStartup := RegValueExists(HKCU, StartupKey, 'GlowTray') or
+    not (RegKeyExists(HKCU32, UninstallKey) or
+      (IsWin64 and RegKeyExists(HKCU64, UninstallKey)));
+  Result := True;
+end;
 
 function StartupEnabled: Boolean;
 begin
-  Result := RegValueExists(HKCU, StartupKey, 'GlowTray');
+  Result := EnableStartup;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

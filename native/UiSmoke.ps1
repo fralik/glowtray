@@ -75,6 +75,11 @@ function Set-Slider([IntPtr]$Slider, [int]$Value) {
 function Invoke-Button([IntPtr]$Button) {
     $null = [NativeLightUi]::SendMessage($Button, 245, 0, 0)
 }
+function Startup-Command {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($startupPath)
+    try { if ($null -ne $key) { return $key.GetValue('GlowTray') } }
+    finally { if ($null -ne $key) { $key.Dispose() } }
+}
 function Assert-SliderPaint([IntPtr]$Slider) {
     $rectangle = [NativeLightUi+RECT]::new()
     $null = [NativeLightUi]::GetClientRect($Slider, [ref]$rectangle)
@@ -136,8 +141,27 @@ try {
         }
     }
     finally { $startupKey.Dispose() }
+    $null = [NativeLightUi]::SendMessage($window, 273, 2004, 0)
+    if ($null -ne (Startup-Command)) { throw 'Tray-menu toggle did not disable startup.' }
+    $null = [NativeLightUi]::PostMessage($window, 273, 2007, 0)
+    if (-not $app.WaitForExit(8000)) { throw 'Native app failed to exit before startup persistence check.' }
+    if ($app.ExitCode -ne 0) { throw "Native app exited with code $($app.ExitCode)." }
+    $app = Start-Process $Executable -ArgumentList '--tray' -PassThru
+    Wait-Until { return [NativeLightUi]::FindWindow('GlowTray.Flyout', 'GlowTray') -ne [IntPtr]::Zero } 'GlowTray did not restart.'
+    $window = [NativeLightUi]::FindWindow('GlowTray.Flyout', 'GlowTray')
+    $brightness = [NativeLightUi]::GetDlgItem($window, 1003)
+    $temperature = [NativeLightUi]::GetDlgItem($window, 1004)
+    $power = [NativeLightUi]::GetDlgItem($window, 1002)
+    Wait-Until { return [NativeLightUi]::IsWindowEnabled($brightness) } 'Saved light did not reconnect after restart.'
+    if ([NativeLightUi]::IsWindowVisible($window)) { throw '--tray did not start hidden.' }
+    if ($null -ne (Startup-Command)) { throw 'Restart re-enabled disabled startup.' }
     $null = [NativeLightUi]::PostMessage($window, 32771, 0, 0)
     Wait-Until { return [NativeLightUi]::IsWindowVisible($window) } 'Popup did not open.'
+    Wait-Until {
+        return (Text ([NativeLightUi]::GetDlgItem($window, 1010))) -eq 'Right-click the tray icon for settings.'
+    } 'Connected status did not point to tray-menu settings.'
+    $null = [NativeLightUi]::SendMessage($window, 273, 2004, 0)
+    if ((Startup-Command) -ne "`"$Executable`" --tray") { throw 'Tray-menu toggle did not enable startup in the tray.' }
     Assert-SliderPaint $brightness
     Assert-SliderPaint $temperature
     Set-Slider $brightness 64
@@ -173,7 +197,7 @@ try {
     $null = [NativeLightUi]::PostMessage($window, 273, 2007, 0)
     if (-not $app.WaitForExit(8000)) { throw 'Native app failed to exit cleanly.' }
     if ($app.ExitCode -ne 0) { throw "Native app exited with code $($app.ExitCode)." }
-    Write-Output 'PASS: GlowTray branding, startup migration, native HTTP, keyboard sliders, power, presets, offline reconnection, Escape/outside dismissal, tray toggle, keyboard activation, single instance, and clean exit.'
+    Write-Output 'PASS: GlowTray branding, startup migration/toggle/persistence, hidden startup, settings hint, native HTTP, keyboard sliders, power, presets, offline reconnection, Escape/outside dismissal, tray toggle, keyboard activation, single instance, and clean exit.'
 }
 catch {
     Write-Output $_.ScriptStackTrace

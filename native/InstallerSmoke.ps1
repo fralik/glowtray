@@ -51,17 +51,22 @@ finally { $mutex.Dispose() }
 
 Invoke-Setup $Installer 'install'
 Assert-Payload
-if ((Get-ItemProperty $startupPath -Name GlowTray -ErrorAction SilentlyContinue)) { throw 'Installation enabled startup without consent.' }
+$expected = "`"$payload`" --tray"
+if ((Get-ItemPropertyValue $startupPath -Name GlowTray) -ne $expected) { throw 'Fresh installation did not enable startup in the tray.' }
 
 $null = New-Item -ItemType Directory $data
 $settings = Join-Path $data 'settings.json'
 $fixture = '{"devices":[],"selected":"","installerSmoke":true}'
 [IO.File]::WriteAllText($settings, $fixture)
-$null = New-Item -Path $startupPath -Force
+Remove-ItemProperty $startupPath -Name GlowTray
+Invoke-Setup $Installer 'upgrade-with-startup-disabled'
+Assert-Payload
+if ((Get-ItemProperty $startupPath -Name GlowTray -ErrorAction SilentlyContinue)) { throw 'Upgrade re-enabled disabled startup.' }
+if ([IO.File]::ReadAllText($settings) -ne $fixture) { throw 'Upgrade with disabled startup changed saved settings.' }
+
 New-ItemProperty $startupPath -Name GlowTray -Value '"C:\previous\GlowTray.exe" --tray' -PropertyType String -Force | Out-Null
 Invoke-Setup $Installer 'upgrade'
 Assert-Payload
-$expected = "`"$payload`" --tray"
 if ((Get-ItemPropertyValue $startupPath -Name GlowTray) -ne $expected) { throw 'Upgrade did not preserve and retarget enabled startup.' }
 if ([IO.File]::ReadAllText($settings) -ne $fixture) { throw 'Upgrade changed saved settings.' }
 
@@ -80,7 +85,7 @@ if ([IO.File]::ReadAllText($settings) -ne $fixture) { throw 'Uninstall removed o
 
 Invoke-Setup $Installer 'reinstall'
 Assert-Payload
-if ((Get-ItemProperty $startupPath -Name GlowTray -ErrorAction SilentlyContinue)) { throw 'Reinstallation enabled startup without consent.' }
+if ((Get-ItemPropertyValue $startupPath -Name GlowTray) -ne $expected) { throw 'Fresh reinstallation did not enable startup in the tray.' }
 $portableStartup = '"C:\portable\GlowTray.exe" --tray'
 New-ItemProperty $startupPath -Name GlowTray -Value $portableStartup -PropertyType String -Force | Out-Null
 Invoke-Setup $uninstaller 'uninstall-with-portable-startup'

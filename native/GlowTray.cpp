@@ -588,7 +588,7 @@ private:
         if (changed) { RefreshChoice(); Save(); }
         if (selected_ == key && !pending_.contains(key) && entry->revision == result->job.revision)
             SetStatus(result->job.kind == Kind::Write ? L"Settings applied." :
-                (wasOnline ? L"Connected. Local control only." : L"Connected to " + entry->device.name + L"."));
+                (wasOnline ? L"Right-click the tray icon for settings." : L"Connected to " + entry->device.name + L"."));
         Render();
     }
     void Poll() {

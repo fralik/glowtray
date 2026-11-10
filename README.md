@@ -15,10 +15,11 @@ or administrator access is required. Windows 10 or later is required.
 
 The optional EXE installer installs to `%LOCALAPPDATA%\Programs\GlowTray`, adds a Start menu
 shortcut and an entry in Windows' installed-apps list, and needs no administrator access.
-Startup remains opt-in in the tray menu. Upgrading preserves settings and updates an already
-enabled startup entry to the installed path. Before upgrading or uninstalling, use **Exit**
-in GlowTray's tray menu; closing the popup only hides it. Uninstall removes the installed
-app and its startup entry, but retains saved lights and logs.
+New installations start GlowTray in the tray when you sign in to Windows. Disable or enable
+this using **Start with Windows** in the tray menu. Upgrading preserves settings and your
+startup choice, updating an enabled startup entry to the installed path. Before upgrading
+or uninstalling, use **Exit** in GlowTray's tray menu; closing the popup only hides it.
+Uninstall removes the installed app and its startup entry, but retains saved lights and logs.
 
 Single-click the ring icon in the system tray to open a compact control popup beside it.
 Click again, press Escape, click outside, or use the popup's close button to hide it.
@@ -28,8 +29,9 @@ and manual IP entry. Sliders also work with the keyboard. Tray keyboard activati
 opens the panel as well.
 
 Right-click the icon for **Start with Windows**, the data folder, forgetting the selected
-light, and **Exit**. Startup is opt-in. `--tray` starts hidden; `--add <address>` connects
-to and selects a specific light. A second launch opens the existing popup.
+light, and **Exit**. Portable builds do not enable startup automatically. `--tray` starts
+hidden; `--add <address>` connects to and selects a specific light. A second launch opens
+the existing popup.
 
 Network operations run in background threads. Slider edits are debounced and combined,
 and writes take priority over polling. Only changed fields are sent, with an explicit
@@ -65,7 +67,8 @@ run the tests on an ARM64 host instead.
 The build produces `GlowTray.exe` and runs the protocol/settings regression checks.
 The isolated UI check uses a native simulated light on loopback, restores native settings,
 and exercises controls, disconnect/reconnect, tray activation/dismissal, single-instance
-behaviour, startup migration, and clean exit. Close GlowTray before running it.
+behaviour, startup migration/toggling/persistence, hidden startup, the settings hint, and clean exit.
+Close GlowTray before running it.
 
 Optional read-only real-device checks:
 
