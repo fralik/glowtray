@@ -61,7 +61,28 @@ jobs:
           .\native\InstallerSmoke.ps1 -Installer $installer -Architecture ${{ matrix.architecture }}
 
       - name: Check native HTTP integration and UI
-        run: .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
+        run: |
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class ReleaseDesktop {
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern IntPtr FindWindow(string className, string windowName);
+          }
+          '@
+          $tray = [ReleaseDesktop]::FindWindow('Shell_TrayWnd', $null)
+          Write-Output "Notification area window: $tray"
+          if ($tray -eq [IntPtr]::Zero) {
+            Write-Output 'Starting Explorer for the UI smoke checks.'
+            Start-Process "$env:WINDIR\explorer.exe"
+            $deadline = (Get-Date).AddSeconds(30)
+            do {
+              Start-Sleep -Milliseconds 250
+              $tray = [ReleaseDesktop]::FindWindow('Shell_TrayWnd', $null)
+            } while ($tray -eq [IntPtr]::Zero -and (Get-Date) -lt $deadline)
+            if ($tray -eq [IntPtr]::Zero) { throw 'Explorer did not create a notification area for UI testing.' }
+          }
+          .\native\UiSmoke.ps1 -Architecture ${{ matrix.architecture }}
 
       - name: Upload portable executable
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
