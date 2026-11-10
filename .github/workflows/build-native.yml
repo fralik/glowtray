@@ -1,6 +1,7 @@
 name: Build GlowTray
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -41,6 +42,7 @@ jobs:
         run: .\native\build.ps1 -Architecture ${{ matrix.architecture }}
 
       - name: Verify tag matches the application version
+        if: github.ref_type == 'tag'
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -85,6 +87,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: build
     runs-on: windows-2025
     timeout-minutes: 10

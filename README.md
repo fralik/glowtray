@@ -99,6 +99,7 @@ commit must belong to `master`, and the tag must match the executable's product 
 Both x64 and ARM64 must pass native regression tests, simulated-light HTTP integration,
 UI smoke checks, and installer/upgrade/uninstall checks before the release is published.
 Failed or cancelled builds do not publish a release.
+The workflow can also be run manually to check `master` without publishing a release.
 
 Each release includes versioned portable executables and EXE installers for both
 architectures, with automatically generated release notes. The tested binaries also

@@ -202,10 +202,21 @@ try {
 catch {
     Write-Output $_.ScriptStackTrace
     if ($null -ne $app) {
+        $app.Refresh()
+        Write-Output "App exited: $($app.HasExited)"
         $window = [NativeLightUi]::FindWindow('GlowTray.Flyout', 'GlowTray')
         if ($window -ne [IntPtr]::Zero) {
             Write-Output "Native status: $(Text ([NativeLightUi]::GetDlgItem($window, 1010)))"
+            foreach ($id in @(1002, 1003, 1004)) {
+                $control = [NativeLightUi]::GetDlgItem($window, $id)
+                Write-Output "Control ${id}: handle=$control enabled=$([NativeLightUi]::IsWindowEnabled($control))"
+            }
         }
+    }
+    $errorLog = Join-Path (Split-Path $settings -Parent) 'errors.log'
+    if (Test-Path $errorLog) {
+        Write-Output 'Application error log:'
+        Get-Content -LiteralPath $errorLog -Tail 60
     }
     Write-Error $_ -ErrorAction Continue
     $exitCode = 1
