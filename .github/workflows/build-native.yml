@@ -62,6 +62,7 @@ jobs:
 
       - name: Check native HTTP integration and UI
         run: |
+          .\native\TrayProbe.ps1
           Add-Type -TypeDefinition @'
           using System;
           using System.Runtime.InteropServices;
